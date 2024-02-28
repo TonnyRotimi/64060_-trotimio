@@ -1,0 +1,264 @@
+---
+title: "Untitled"
+output: html_document
+date: "2024-02-26"
+---
+
+```{r}
+library(ISLR)
+library(caret)
+library(class)
+library(gmodels)
+```
+
+```{r}
+Universal <- read.csv('C:/Users/rotim/Documents/R/UniversalBank.csv')
+summary(Universal)
+```
+
+To create dummy variables from the Education variable
+```{r}
+Education<-as.factor(Universal$Education)
+Personal.Loan<-as.factor(Universal$Personal.Loan)
+```
+We first create a dataframe out of education
+```{r}
+education_df <- data.frame(Education_1 = as.character(levels(Education)))
+```
+
+```{r}
+dummy_variables <- model.matrix(~ Education - 1, data = education_df)
+```
+
+To combine the main dataset and the new dummy variables created
+```{r}
+Universal <- cbind(Universal, dummy_variables)
+```
+
+To exclude the ID and ZIP.Code and the redundant Education variables from the kNN modeling
+```{r}
+Universal<- Universal[,-c(1,5,8)]
+```
+
+Use the createDataPartition function to partition the Universal dataset using the Income column.
+```{r}
+set.seed(123) 
+Temp_data=createDataPartition(Universal$Personal.Loan,p=0.60, list=FALSE)
+```
+
+```{r}
+Training=Universal[Temp_data,]
+```
+
+Validation data
+```{r}
+Validation=Universal[-Temp_data,]
+```
+
+The Personal.Loan variable is the 8 variable in the dataset and so we define the predictors and target variable
+```{r}
+Training_predictors<- Training[,-c(8)]
+Validation_predictors<- Validation[,-c(8)]
+
+Training_labels <-Training[,c(8)]
+Validation_labels  <-Validation[,c(8)]
+summary(Validation_labels)
+```
+
+Defining the target customer
+```{r}
+Target_client <- data.frame(Age = 40, Experience = 10, Income = 84, Family = 2,
+                            CCAvg = 2, Education1 = 0, Education2 = 1, Education3 = 0,
+                            Mortgage = 0, Securities.Account = 0, CD.Account = 0,
+                            Online = 1, CreditCard = 1)
+```
+Make predictions
+```{r}
+Result <- knn(train = Training_predictors,
+              test = Target_client,
+              cl = Training_labels,
+              k = 1, )
+Result
+```
+Convert Result to numeric so we can specify the cutoff value
+```{r}
+Result <- as.numeric(as.character(Result))
+```
+Define the cutoff values
+```{r}
+success_class <- 1
+cutoff <- 0.5
+```
+
+```{r}
+result_1<- ifelse(Result >= cutoff, success_class, 0)
+result_1
+```
+
+2) What is a choice of k that balances between overfitting and ignoring the predictor information?
+
+First we convert Personal.Loan to a Factor to allow us predict the best choice of k
+```{r}
+Universal$Personal.Loan <- factor(Universal$Personal.Loan, levels = c(0, 1))
+
+set.seed(123) 
+Serach_grid <- expand.grid(k=c(1:10))
+model<-train(Personal.Loan~Age+Experience+Income+Family+Education1+Education2+Education3+Mortgage+Securities.Account+CD.Account+Online+CreditCard+CCAvg, data=Universal, method="knn", tuneGrid=Serach_grid,  metric = "Accuracy" )
+```
+
+The optimal value of K is 1
+
+train a knn model where k=1
+```{r}
+Result_1 <- knn(train = Training_predictors,
+              test = Validation_predictors,
+              cl = Training_labels,
+              k = 1)
+```
+
+3. Show the confusion matrix for the validation data that results from using the best k.
+
+Converting Validation_labels to a factor to allow for the plotting of the confusion matrix
+```{r}
+Validation_labels <- factor(Validation_labels)
+```
+Plotting Confusion Matrix
+```{r}
+confusionMatrix(data=Result_1, reference = Validation_labels)
+```
+
+4) Consider the following customer...
+
+```{r}
+Target_client2 <- data.frame(Age = 40, Experience = 10, Income = 84, Family = 2,
+                            CCAvg = 2, Education1 = 0, Education2 = 1, Education3 = 0,
+                            Mortgage = 0, Securities.Account = 0, CD.Account = 0,
+                            Online = 1, CreditCard = 1)
+```
+Classify the customer using the best K
+We identified previously that the optimal value of k is 1. Now we train a knn model where k=1
+```{r}
+Result_2 <- knn(train = Training_predictors,
+                test = Target_client2,
+                cl = Training_labels,
+                k = 1,)
+```
+
+```{r}
+Result_2
+```
+
+5. Repartition the data, this time into training, validation, and test sets...
+```{r}
+Universal_1 <- read.csv('C:/Users/rotim/Documents/R/UniversalBank.csv')
+summary(Universal_1)
+```
+
+To create dummy variables from the Education
+```{r}
+Education<-as.factor(Universal_1$Education)
+Personal.Loan<-as.factor(Universal_1$Personal.Loan)
+
+education_df <- data.frame(Education_1 = as.character(levels(Education)))
+```
+Convert factor levels to dummy variables
+```{r}
+dummy_variables <- model.matrix(~ Education - 1, data = education_df)
+```
+To combine the main dataset and the new dummy variables created
+```{r}
+Universal_1 <- cbind(Universal_1, dummy_variables)
+```
+Print the updated dataset
+```{r}
+summary(Universal_1)
+```
+
+To exclude the ID and ZIP.Code and redundant Education variables from the kNN modeling
+```{r}
+Universal_1<- Universal_1[,-c(1,5,8)]
+```
+
+Use the createDataPartition function to partition the Universal dataset using the Income column.
+```{r}
+set.seed(123) 
+Temp_data=createDataPartition(Universal_1$Personal.Loan,p=0.8, list=FALSE)
+```
+First we divide the dataset into a Temp and test dataset. The Temp dataset will later be divided into training and validation dataset.
+```{r}
+Temp=Universal_1[Temp_data,]
+```
+Test data
+```{r}
+Test=Universal_1[-Temp_data,]
+```
+Next we partition the Temp dataset into Training and Validation dataset
+```{r}
+set.seed(123) 
+Train_data=createDataPartition(Temp$Personal.Loan,p=0.625, list=FALSE)
+```
+Training dataset
+```{r}
+Training=Temp[Train_data,]
+```
+Validation data
+```{r}
+Validation=Temp[-Train_data,]
+```
+
+
+```{r}
+Training_predictors<- Training[,-c(8)]
+Validation_predictors<- Validation[,-c(8)]
+Test_predictors<- Test[,-c(8)]
+
+Training_labels <-Training[,c(8)]
+Validation_labels  <-Validation[,c(8)]
+Test_labels  <-Test[,c(8)]
+```
+
+Training and Validation prediction model
+```{r}
+Result <- knn(train = Training_predictors,
+              test = Validation_predictors,
+              cl = Training_labels,
+              k = 1, )
+```
+Converting Validation_labels to a factor to allow for the plotting of the confusion matrix
+```{r}
+Validation_labels <- factor(Validation_labels)
+```
+Plotting Confusion Matrix for the Training and validation model
+```{r}
+confusionMatrix(data=Result, reference = Validation_labels)
+```
+Test prediction model
+```{r}
+Result_1 <- knn(train = Training_predictors,
+              test = Test_predictors,
+              cl = Training_labels,
+              k = 1, )
+```
+Converting Test_labels to a factor to allow for the plotting of the confusion matrix
+```{r}
+Test_labels <- factor(Test_labels)
+```
+Plotting Confusion Matrix for the Test model
+```{r}
+confusionMatrix(data=Result_1, reference = Test_labels)
+```
+Compare the confusion matrix of the test set with that of the training and validation sets. 
+
+The confusion matrix of the Training and validation model 
+Accuracy=0.8224
+Kappa=0.0205  
+
+The confusion matrix of the Test model 
+Accuracy=0.8126 
+Kappa=0.0486 
+
+The Accuracy of the Test model is higher than that of the Training and validation model. This maybe due to the presence of overfitting in the training and validation dataset
+
+
+
+
