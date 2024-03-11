@@ -1,0 +1,200 @@
+---
+title: "Untitled"
+output: html_document
+date: "2024-03-10"
+---
+
+```{r}
+library(ISLR)
+library(caret)
+library(class)
+library(gmodels)
+library(dplyr)
+library(e1071)
+```
+
+```{r}
+Universal <- read.csv('C:/Users/rotim/Documents/R/UniversalBank.csv')
+summary(Universal)
+```
+
+To create dummy variables from the Education
+```{r}
+Education<-as.factor(Universal$Education)
+Personal.Loan<-as.factor(Universal$Personal.Loan)
+education_df <- data.frame(Education_1 = as.character(levels(Education)))
+dummy_variables <- model.matrix(~ Education - 1, data = education_df)
+```
+
+
+To combine the main dataset and the new dummy variables created
+```{r}
+Universal <- cbind(Universal, dummy_variables)
+summary(Universal)
+```
+
+Use the createDataPartition function to partition the Universal dataset using the Income column.
+```{r}
+set.seed(123) 
+Temp_data=createDataPartition(Universal$Personal.Loan, p=0.60, list=FALSE)
+```
+Training data
+```{r}
+Training=Universal[Temp_data,]
+```
+Validation data
+```{r}
+Validation=Universal[-Temp_data,]
+View(Validation)
+```
+
+
+A. Create a pivot table for the training data with Online as a column variable,
+```{r}
+pivot_table <-table(Universal$CreditCard, Universal$Online, Universal$Personal.Loan)
+```
+
+Naming the pivot table
+```{r}
+rownames(pivot_table) <- c("CreditCard_0", "CreditCard_1")
+colnames(pivot_table) <- c("Online_0", "Online_1") 
+```
+
+```{r}
+pivot_table<- addmargins(pivot_table)
+pivot_table
+```
+
+B Consider the task of classifying a customer who owns a bank credit card and is actively using online banking services.
+We can view this easily from the second pivot table where Personal.Loan = 1.
+Looking at that table, the intersection of Credit_Card_1 and Online_1,we have 82
+```{r}
+ prob <- 82/882
+ prob
+```
+
+C. Create two separate pivot tables for the training data. 
+Pivot table with Loan as rows and Online as columns
+```{r}
+pivot_table_1 <-table(Universal$Personal.Loan, Universal$Online)
+```
+
+Naming the pivot table
+```{r}
+rownames(pivot_table_1) <- c("Personal.Loan,_0", "Personal.Loan,_1")
+colnames(pivot_table_1) <- c("Online_0", "Online_1")
+```
+
+```{r}
+pivot_table_1<- addmargins(pivot_table_1)
+pivot_table_1
+```
+
+Pivot table with Loan as rows and CreditCard as columns
+```{r}
+pivot_table_2 <-table(Universal$Personal.Loan, Universal$CreditCard)
+```
+
+Naming the pivot table
+```{r}
+rownames(pivot_table_2) <- c("Personal.Loan,_0", "Personal.Loan,_1")
+colnames(pivot_table_2) <- c("CreditCard_0", "CreditCard_1")
+```
+
+```{r}
+pivot_table_2<- addmargins(pivot_table_2)
+pivot_table_2
+```
+
+Compute the following quantities 
+1 P(CC = 1 | Loan = 1)
+```{r}
+p1 <- 143/480
+p1
+```
+
+2 P(Online = 1 | Loan = 1)
+```{r}
+p2 <- 291/480
+p2
+```
+
+
+3 P(Loan = 1)
+```{r}
+p3 <- 480/5000
+p3
+```
+
+ 
+4 P(CC = 1 | Loan = 0)
+```{r}
+p4 <- 1327/4520
+p4
+```
+
+
+ 
+5 P(Online = 1 | Loan = 0)
+```{r}
+p5 <- 2693/4520
+p5
+```
+
+6 P(Loan = 0)
+```{r}
+p6 <- 4520/5000
+p6
+```
+
+E. Use the quantities computed above to compute the naive Bayes probability P(Loan = 1 | CC = 1, Online = 1).
+
+P(Loan = 1 | CC = 1, Online = 1).= P(CC=1∣Loan=1)×P(Online=1∣Loan=1)×P(Loan=1)/(P( CC=1) ,P(Online=1))
+
+P(Online = 1)
+```{r}
+p7 <- 2984/5000
+```
+P(Creditcard = 1)
+```{r}
+p8 <- 1470/5000
+```
+
+```{r}
+prob_1 <- (p1*p2*p3)/ (p7*p8)
+prob_1
+```
+
+F
+The naive bayes value is a more accurate estimate
+G. Which of the entries in this table are needed for computing P(Loan = 1 | CC = 1, Online = 1)?
+1 P(CC = 1 | Loan = 1)
+2 P(Online = 1 | Loan = 1)
+3 P(Loan = 1)
+4 P(Online = 1)
+5 P(Creditcard = 1)
+
+```{r}
+str(Universal)
+```
+
+Run naive Bayes on the data. Examine the model output on training data...
+Naive Bayes classifier
+```{r}
+nb_model <-naiveBayes(Personal.Loan~  CreditCard+Online, data = Training)
+```
+
+```{r}
+Target_client <- data.frame(Personal.Loan = 1,Online = 1, CreditCard = 1)
+```
+
+Predict the default status of test dataset
+```{r}
+Predicted_Test_labels <-predict(nb_model, Target_client, type="raw")
+Predicted_Test_labels
+```
+
+The result from running the model gives the probability of a client who took a personal loan, has a credit card and is using online services is 0.11, while the result of the computation is 0.09881.
+
+
+
