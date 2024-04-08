@@ -1,0 +1,236 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r}
+library(factoextra)
+library(ISLR)
+library(flexclust)
+library(cluster)
+library(ISLR)
+library(caret)
+library(class)
+library(gmodels)
+library(dplyr)
+library(clusterCrit)
+```
+
+To read the dataset into the software
+```{r}
+cereal_1 <- read.csv('C:/Users/rotim/Documents/R/Cereals.csv')
+```
+To remove missing values
+```{r}
+cereal_1 <-na.omit(cereal_1)
+```
+
+3 cereal rows removed after running the code
+
+To select only numeric variables for clustering
+```{r}
+cereal <- cereal_1[sapply(cereal_1, is.numeric)]
+```
+To normalize the data
+```{r}
+cereal <- scale(cereal)
+cereal <- as.data.frame(cereal)
+```
+Apply hierarchical clustering to the data using Euclidean distance to the normalized
+
+```{r}
+single_clust <- agnes(cereal, method = "single")
+complete_clust <- agnes(cereal, method = "complete")
+average_clust <- agnes(cereal, method = "average")
+ward_clust <- agnes(cereal, method = "ward")
+```
+Print the result
+```{r}
+print(single_clust$ac)
+print(complete_clust$ac)
+print(average_clust$ac)
+print(ward_clust$ac)
+```
+
+From the above we see the ward linkage method is the best approach.
+
+We perform heirarchical clustering using the Ward method
+```{r}
+cereal_names <- cereal_1[, 1]
+cereal_dist <- dist(cereal_1[, -1], method = "euclidean")  
+ward_cluster <- hclust(cereal_dist, method = "ward.D2")
+cutree_ward <- cutree(ward_cluster, k = 6)
+cereal_clustered <- cbind(as.data.frame(cereal), Cluster = cutree_ward)
+```
+
+Using the fviz_nbclust() we get an idea of the appropriate no of clusters
+```{r}
+fviz_nbclust(cereal, kmeans, method = "wss")
+```
+From the graph below we see the elbow point at 6.
+
+Now we plot the actual Dendrogram. After plotting the dendrogram initially, we see that 6 clusters are appropriate so we set k to 6.
+```{r}
+plot(ward_cluster, cex=0.4, labels = cereal_names)
+rect.hclust(ward_cluster, k=6, border= 1:4)
+```
+
+How many clusters would you choose?
+From examining the Dendrogram and with the elbow point diagram, 6 is an appropriate no of clusters for the data.
+
+We Partition the dataset below
+```{r}
+set.seed(123) 
+cereal_2=createDataPartition(cereal_1$calories, p=0.50, list=FALSE)
+```
+
+Partition A
+```{r}
+A_1=cereal_1[cereal_2,]
+A <- A_1[sapply(cereal_1, is.numeric)]
+A <- scale(A)
+```
+
+Partition B
+```{r}
+B_1=cereal_1[-cereal_2,]
+B <- B_1[sapply(cereal_1, is.numeric)]
+B <- scale(B)
+```
+
+
+To make the partition A into a dataframe
+```{r}
+A <- as.data.frame(A)
+```
+Clustering partition A
+```{r}
+cereal_dt_A <- dist(A, method = "euclidean")
+cluster_A <- hclust(cereal_dt_A, method="ward.D2")
+```
+
+Define the clust.centroid function
+```{r}
+clust.centroid <- function(i, A, cluster_A_labels) {
+  ind <- (cluster_A_labels == i)
+  colMeans(A[ind, ])
+}
+```
+
+Compute centroids for each cluster in partition A
+```{r}
+centroids_A <- sapply(1:6, function(i) clust.centroid(i, A, cluster_A$labels))
+```
+
+Function to assign records in partition B to the closest cluster
+```{r}
+assign_to_closest_cluster <- function(record, centroids) {
+  distances <- apply(centroids, 2, function(centroid) sqrt(sum((record - centroid)^2)))
+  return(which.min(distances))
+}
+```
+Assign each record in partition B to the closest cluster
+```{r}
+cluster_B <- sapply(1:nrow(B), function(i) {
+  assign_to_closest_cluster(B[i, ], centroids_A)})
+```
+
+Create hierarchical clustering object for partition B
+```{r}
+cereal_dt_B <- dist(cluster_B, method = "euclidean")
+cluster_B_hclust <- hclust(cereal_dt_B, method = "ward.D2")
+```
+
+Plot the Dendrogram for the combined data, Partition A and Partition B then compare
+
+Dendrogram for the Combined data
+```{r}
+plot(ward_cluster, cex=0.4, labels = cereal_names)
+rect.hclust(ward_cluster, k=6, border= 1:4)
+```
+Identify and print the cereals in the second cluster of the combined cluster
+```{r}
+cereals_in_cluster_1 <- cereal_names[cutree_ward == 2]
+print(cereals_in_cluster_1)
+```
+
+Dendrogram for Partition A
+```{r}
+cereal_names_A <- A_1[, 1]
+plot(cluster_A, cex = 0.4, labels = cereal_names_A)
+rect.hclust(cluster_A, k = 6, border = 1:4)
+```
+
+Identify and print the cereals in the second cluster of cluster_A
+```{r}
+cutree_ward_A <- cutree(cluster_A, k = 6)
+cereal_clustered_A <- cbind(as.data.frame(A), Cluster = cutree_ward_A)
+cereals_in_cluster_A <- cereal_names_A[cutree_ward_A == 2]
+print(cereals_in_cluster_A)
+```
+
+Dendrogram for Partition B
+```{r}
+cereal_names_B <- B_1[, 1]
+plot(cluster_B_hclust, cex = 0.4, main = "Dendrogram for Cluster B", labels = cereal_names_B)
+rect.hclust(cluster_B_hclust, k = 6, border = 1:4)
+```
+
+Identify and print the cereals in the second cluster of cluster_B
+```{r}
+cutree_ward_B <- cutree(cluster_B_hclust, k = 6)
+cereal_clustered_B <- cbind(as.data.frame(B), Cluster = cutree_ward_B)
+cereals_in_cluster_B <- cereal_names_B[cutree_ward_B == 2]
+
+print(cereals_in_cluster_B)
+```
+
+From examination of the cereals in the second cluster of the combined, partition A and B datasets, we see that a number of cereals present in the second cluster of the partitioned A and B datasets, are  not present in second cluster of the combined dataset.
+
+Also from examining the dendrograms of the partition A and B datasets, we see that a number of cereals in clusters are not in the same clusters as they were in the combined dataset clusters. 
+
+Hence the clustering is not as consistent as it should be.
+  
+The elementary public schools would like to choose a set of cereals to include in their...
+
+Compute summary statistics for each cluster
+```{r}
+cluster_total <- aggregate(cereal_clustered[, -ncol(cereal_clustered)], 
+                           by = list(cluster = cutree_ward), FUN = mean)
+
+```
+
+Print the summary statistics for each cluster
+```{r}
+print(cluster_total)
+```
+
+On examination of the clusters, we see that the cereals in cluster 1 are the healthiest
+as they have the lowest number of calories, sugar,and weight, while also having the highest amount of fiber, potass and protein. The cereals in cluster 1 also have the higher ratings.
+
+To see and print the names of cereals in cluster 1
+```{r}
+cereals_in_cluster_1 <- cereal_names[cutree_ward == 1]
+
+print(cereals_in_cluster_1)
+```
+
+As a different cereal should be offered everyday, we can also choose cereals from cluster 2 and 4 as they are healthier than the other 3 clusters, as they are rich in protein, fiber and potass.
+
+To see and print the names of cereals in cluster 2 
+```{r}
+cereals_in_cluster_2 <- cereal_names[cutree_ward == 2]
+
+print(cereals_in_cluster_2)
+```
+
+To see and print the names of cereals in cluster 4
+```{r}
+cereals_in_cluster_4 <- cereal_names[cutree_ward == 4]
+
+print(cereals_in_cluster_4)
+```
+
+
+
