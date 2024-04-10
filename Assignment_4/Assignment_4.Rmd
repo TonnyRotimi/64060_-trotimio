@@ -1,0 +1,132 @@
+```{r}
+library(ISLR)
+library(caret)
+library(class)
+library(gmodels)
+library(dplyr)
+library(e1071)
+library(cluster)
+library(factoextra)
+library(kernlab)
+library(ggcorrplot)
+library(broom)
+```
+
+
+```{r}
+pharma_1 <- read.csv('C:/Users/rotim/Documents/R/Pharmaceuticals.csv')
+```
+To select only numeric variables for clustering
+```{r}
+pharma <- pharma_1[sapply(pharma_1, is.numeric)]
+pharma <- as.data.frame(pharma)
+summary(pharma)
+```
+To scale  the data which is important when clustering
+```{r}
+pharma <- scale(pharma)
+```
+First we observe the correlation between our features.
+```{r}
+pharma_corr<- cor(pharma)
+```
+```{r}
+ggcorrplot(pharma_corr,
+           outline.color = "grey50",
+           lab = TRUE,
+           hc.order = TRUE,
+           type = "full")
+```
+From the correlation matrix, we see most of the features are moderately correlated, with the exception of the following variables which exhibited a high correlation of 0.7 and above between each other; (ROA-Market_cap,RoE-ROA, Net_profit_margin-ROA). Due to the significance of the variables in this analysis, we do not omit or replace them.
+
+We make use of kmeans clustering as our dataset is small and we want to conduct a simple and yet effective clustering analysis.
+To determine the optimal no of clusters using the fviz_nbclust() 
+```{r}
+fviz_nbclust(pharma, kmeans, method = "wss")
+```
+From the graph below we see the elbow point at 2, hence we use 2 clusters.
+```{r}
+set.seed(123)
+cluster <- kmeans(pharma, centers = 2, nstart = 25)
+```
+```{r}
+cluster_table <- table(cluster$cluster)
+cluster_table
+```
+```{r}
+fviz_cluster(cluster, data = pharma)
+```
+
+b
+To see the centers of each cluster, from this we can explain different characteristics of the dataset
+```{r}
+cluster$centers
+```
+From the first cluster, we see the pharmaceuticals are mostly have a high Return on Equity (ROE)
+ and Return on Assets (ROA), indicating they make decent Net income/earnings, visible in the fact
+that they also have high Net profit margins. We also see these companies are not heavily leveraged
+hence reducing their interest expense burden and allowing for a higher net profit margin.
+In the second cluster we see the companies have a low market cap ROE and ROA. It is no surprise that 
+these companies are heavily leveraged, hence will have a bigger interest burden.It is important to note
+that these companies also have high revenue growth and have a positive beta, meaning they move
+positively with the markets and do very well in a favourable economy.
+
+
+Plot a dendrogram to view the hierarchical clusters
+Exclude non-numeric variables
+```{r}
+pharma_heir <- pharma_1[, -c(1, 12, 13, 14)]
+```
+Convert the data to a data frame
+```{r}
+pharma_heir <- as.data.frame(pharma_heir)
+```
+Compute the distance between variables
+```{r}
+pharma_dt <- dist(pharma_heir, method = "euclidean")
+```
+Create the hierarchical clusters
+
+```{r}
+hclust_1 <- hclust(pharma_dt, method = "ward.D2") 
+```
+To enable the hierarchy cluster display the pharmacy names.
+```{r}
+pharmacy_names <- pharma_1[, 2]
+plot(hclust_1, cex = 0.5, main = "Hierarchical Clustering Dendrogram", xlab = "Pharmacy", ylab = "Distance", labels = pharmacy_names)
+```
+
+```{r}
+cluster_vector <- cluster$cluster
+summary(pharma_1)
+table_Exchange<- table(cluster_vector, pharma_1$Exchange)
+table_Location<- table(cluster_vector, pharma_1$Location)
+table_Median_Recommendation<- table(cluster_vector, pharma_1$Median_Recommendation)
+```
+
+```{r}
+table_Exchange
+table_Location
+table_Median_Recommendation
+```
+From the table_Exchange we note that all pharmacies from the first clusters, which have higher than average ROE, ROA and high Net_profit_margins we noted earlier are listed on the NYSE, based in the US.Also, about 8 pharmacies from the second clusters are located on the NYSE, while the remaining 2 are listed on the AMEX and NASDAQ exchange.
+From the table_Location we note that most pharmacies from the first clusters, are concentrated in the US with two in the Uk, while about 4 pharmacies from the second cluster were listed in the EURO region.
+From the table_Median_Recommendation we note that about 9 pharmacies from the first cluster have a hold or buy recommendation as they are returns are positive. About 7  clusters from the
+second cluster also have a hold or buy recommendation, this is understandable as they have a higher than average revenue growth rate and a positive beta.
+Overall we see that pharmacies from the first cluster are concentrated in the US and are all listed on the NYSE, although most pharmacies from both clusters have a positive hold/buy Median_recommendation.
+
+
+d
+For the first cluster we name them as High Market_cap,ROE,ROA and Low-Leverage Firms due to the characteristics
+mentioned in question b.
+For the second cluster we name them as High Leverage,revenue growth and Low ROE,ROA firms.
+
+```{r}
+cluster_names <- c("High Market_cap, ROE, ROA and Low-Leverage Firms", 
+                   "High Leverage, Revenue Growth and Low ROE, ROA Firms")
+```
+Assign cluster names to the cluster object
+```{r}
+names(cluster$cluster) <- cluster_names
+names(cluster$cluster)
+```
